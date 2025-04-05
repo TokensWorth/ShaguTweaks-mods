@@ -62,80 +62,7 @@ module.enable = function(self)
     dis = true
   end
 
-  do -- merchant
-    AddBorder(_G["MerchantBuyBackItemItemButton"], 3, color)
-
-    for i = 1, 12 do
-      AddBorder(_G["MerchantItem"..i.."ItemButton"], 3, color)
-    end
-
-    local refresh_merchant = function()
-      if MerchantFrame.selectedTab == 1 then
-        -- merchant tab
-        for i = 1, GetMerchantNumItems() do
-          local button = _G["MerchantItem"..i.."ItemButton"]
-          if button then
-            if not defcolor["merchant"] then
-              defcolor["merchant"] = { button.ShaguTweaks_border:GetBackdropBorderColor() }
-            end
-
-            button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["merchant"][1], defcolor["merchant"][2], defcolor["merchant"][3], 0)
-
-            local link = GetMerchantItemLink(i)
-            if link then
-              local _, _, istring = string.find(link, "|H(.+)|h")
-              local _, _, q = GetItemInfo(istring)
-              if q then
-                SetGlowForQuality(button, q, defcolor["merchant"])
-              end
-            end
-          end
-        end
-
-        local button = _G["MerchantBuyBackItemItemButton"]
-        if button then
-          button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["merchant"][1], defcolor["merchant"][2], defcolor["merchant"][3], 0)
-
-          local buyback = GetNumBuybackItems()
-          if buyback > 0 then
-            local iname = GetBuybackItemInfo(buyback)
-            local link = GetItemLinkByName(iname)
-            if link then
-              local _, _, istring = string.find(link, "|H(.+)|h")
-              local _, _, q = GetItemInfo(istring)
-              if q then
-                SetGlowForQuality(button, q, defcolor["merchant"])
-              end
-            end
-          end
-        end
-      else
-        -- buyback tab
-        for i = 1, GetNumBuybackItems() do
-          local button = _G["MerchantItem"..i.."ItemButton"]
-          if button then
-            button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["merchant"][1], defcolor["merchant"][2], defcolor["merchant"][3], 0)
-
-            local iname = GetBuybackItemInfo(i)
-            local link = GetItemLinkByName(iname)
-            if link then
-              local _, _, istring = string.find(link, "|H(.+)|h")
-              local _, _, q = GetItemInfo(istring)
-              if q then
-                SetGlowForQuality(button, q, defcolor["merchant"])
-              end
-            end
-          end
-        end
-      end
-    end
-
-    local HookMerchantFrame_Update = MerchantFrame_Update
-    MerchantFrame_Update = function()
-      HookMerchantFrame_Update()
-      refresh_merchant()
-    end
-  end
+ 
 
   do -- tradeskill
     if not dis then
@@ -283,48 +210,7 @@ module.enable = function(self)
     end
   end
 
-  do -- mail
-    for i = 1, 7 do
-      AddBorder(_G["MailItem"..i.."Button"], 3, color)
-    end
-
-    AddBorder(_G["OpenMailPackageButton"], 3, color)
-
-    local refresh_mail = function()
-      for i = 1, GetInboxNumItems() do
-        local button = _G["MailItem"..i.."Button"]
-        if button then
-          if not defcolor["mail"] then
-            defcolor["mail"] = { button.ShaguTweaks_border:GetBackdropBorderColor() }
-          end
-
-          button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["mail"][1], defcolor["mail"][2], defcolor["mail"][3], 0)
-
-          local _, _, _, q = GetInboxItem(i)
-          if q then
-            SetGlowForQuality(button, q, defcolor["mail"])
-          end
-        end
-      end
-
-      if InboxFrame.openMailID then
-        local button = _G["OpenMailPackageButton"]
-
-        button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["mail"][1], defcolor["mail"][2], defcolor["mail"][3], 0)
-
-        local _, _, _, q = GetInboxItem(InboxFrame.openMailID)
-        if q then
-          SetGlowForQuality(button, q, defcolor["mail"])
-        end
-      end
-    end
-
-    local HookOpenMail_Update = OpenMail_Update
-    OpenMail_Update = function()
-      HookOpenMail_Update()
-      refresh_mail()
-    end
-  end
+ 
 
   do -- trade
     for i = 1, 7  do
@@ -383,34 +269,5 @@ module.enable = function(self)
         refresh_trade_player()
       end
     end)
-  end
-
-  do -- loot
-    for i = 1, 4 do
-      AddBorder(_G["LootButton"..i], 3, color)
-    end
-
-    local refresh_loot = function()
-      for i = 1, 4 do
-        local button = _G["LootButton"..i]
-        if button then
-          if not defcolor["loot"] then
-            defcolor["loot"] = { button.ShaguTweaks_border:GetBackdropBorderColor() }
-          end
-
-          button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["loot"][1], defcolor["loot"][2], defcolor["loot"][3], 0)
-
-          local _, _, _, q = GetLootSlotInfo(i)
-          if q then
-            SetGlowForQuality(button, q, defcolor["loot"])
-          end
-        end
-      end
-    end
-
-    local loot = CreateFrame("Frame", nil, LootFrame)
-    loot:RegisterEvent("LOOT_OPENED")
-    loot:RegisterEvent("LOOT_SLOT_CLEARED")
-    loot:SetScript("OnEvent", refresh_loot)
   end
 end

@@ -1,3 +1,4 @@
+
 local _G = ShaguTweaks.GetGlobalEnv()
 local L, T = ShaguTweaks.L, ShaguTweaks.T
 local AddBorder = ShaguTweaks.AddBorder
@@ -44,7 +45,6 @@ local function AddTexture(frame, inset, color)
   if frame.ShaguTweaks_texture then return frame.ShaguTweaks_texture end
 
   local top, right, bottom, left
-
   if type(inset) == "table" then
     top, right, bottom, left = unpack((inset))
     left, bottom = -left, -bottom
@@ -56,12 +56,10 @@ local function AddTexture(frame, inset, color)
     frame.ShaguTweaks_texture:SetBlendMode("ADD")
     frame.ShaguTweaks_texture:SetPoint("TOPLEFT", frame, "TOPLEFT", (left or -inset), (top or inset))
     frame.ShaguTweaks_texture:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", (right or inset), (bottom or -inset))
-
     if color then
-      frame.ShaguTweaks_texture:SetVertexColor(color.r, color.g, color.b, 1)
+      frame.ShaguTweaks_texture:SetVertexColor(color.r, color.g, color.b, 0.7) -- Changed from 1 to 0.7
     end
   end
-
   return frame.ShaguTweaks_texture
 end
 
@@ -77,16 +75,11 @@ local suffixes = {
 local function remove_suffix(item)
   if not item then return end
   for _, suffix in ipairs(suffixes) do
-      item = string.gsub(item, "%s" .. suffix .. "$", "")
+    item = string.gsub(item, "%s" .. suffix .. "$", "")
   end
   return item
 end
 
--- https://github.com/shagu/pfUI/blob/ebaebc6304625a47b825779231df9d4a054fd228/api/api.lua
--- [ GetItemLinkByName ]
--- Returns an itemLink for the given itemname
--- 'name'       [string]         name of the item
--- returns:     [string]         entire itemLink for the given item
 local function GetItemLinkByName(name)
   name = remove_suffix(name)
   for itemID = 1, 25818 do
@@ -98,12 +91,21 @@ local function GetItemLinkByName(name)
   end
 end
 
--- HerrTiSo / That Guy Turtles addition: Disable glow on low quality items
+local function IsQuestItem(link)
+  if not link then return false end
+  local _, _, itemString = string.find(link, "|H(.+)|h")
+  if itemString then
+    local _, _, _, _, itemType = GetItemInfo(itemString)
+    return itemType == "Quest"
+  end
+  return false
+end
+
 local function SetGlowForQuality(button, quality, defaultColor)
   if quality and quality > 1 then
     local r, g, b = GetItemQualityColor(quality)
     button.ShaguTweaks_border:SetBackdropBorderColor(r, g, b, 1)
-    button.ShaguTweaks_texture:SetVertexColor(r, g, b, 1)
+    button.ShaguTweaks_texture:SetVertexColor(r, g, b, 0.7)
   else
     button.ShaguTweaks_border:SetBackdropBorderColor(defaultColor[1], defaultColor[2], defaultColor[3], 0)
     button.ShaguTweaks_texture:SetVertexColor(defaultColor[1], defaultColor[2], defaultColor[3], 0)
@@ -122,24 +124,19 @@ module.enable = function(self)
         local button = _G["Character"..slot]
         if button then
           local border = button.ShaguTweaks_border
-
           if not border then
             border = AddBorder(button, 3, { r = .5, g = .5, b = .5 })
           end
-
           local texture = button.ShaguTweaks_texture
-
           if not texture then
             texture = AddTexture(button, 14, { r = .5, g = .5, b = .5 })
           end
-
           if not defcolor["paperdoll"] then
             defcolor["paperdoll"] = { border:GetBackdropBorderColor() }
           end
-
           local quality = GetInventoryItemQuality("player", i)
           if quality then
-            SetGlowForQuality(button, quality, defcolor["bag"])
+            SetGlowForQuality(button, quality, defcolor["paperdoll"])
           else
             border:SetBackdropBorderColor(defcolor["paperdoll"][1], defcolor["paperdoll"][2], defcolor["paperdoll"][3], 1)
             texture:SetVertexColor(defcolor["paperdoll"][1], defcolor["paperdoll"][2], defcolor["paperdoll"][3], 0)
@@ -147,7 +144,6 @@ module.enable = function(self)
         end
       end
     end
-
     local paperdoll = CreateFrame("Frame", nil, CharacterFrame)
     paperdoll:RegisterEvent("UNIT_INVENTORY_CHANGED")
     paperdoll:SetScript("OnEvent", refresh_paperdoll)
@@ -160,34 +156,27 @@ module.enable = function(self)
         local button = _G["Inspect"..v]
         local link = GetInventoryItemLink("target", i)
         local border = button.ShaguTweaks_border
-
         if not border then
           border = AddBorder(button, 3, { r = .5, g = .5, b = .5 })
         end
-
         local texture = button.ShaguTweaks_texture
-
         if not texture then
           texture = AddTexture(button, 14, { r = .5, g = .5, b = .5 })
         end
-
         if not defcolor["inspect"] then
           defcolor["inspect"] = { border:GetBackdropBorderColor() }
         end
-
         border:SetBackdropBorderColor(defcolor["inspect"][1], defcolor["inspect"][2], defcolor["inspect"][3], 1)
         texture:SetVertexColor(defcolor["inspect"][1], defcolor["inspect"][2], defcolor["inspect"][3], 0)
-
         if link then
           local _, _, istring = string.find(link, "|H(.+)|h")
           local _, _, quality = GetItemInfo(istring)
           if quality then
-            SetGlowForQuality(button, quality, defcolor["bag"])
+            SetGlowForQuality(button, quality, defcolor["inspect"])
           end
         end
       end
     end
-
     HookAddonOrVariable("Blizzard_InspectUI", function()
       local HookInspectPaperDollItemSlotButton_Update = InspectPaperDollItemSlotButton_Update
       InspectPaperDollItemSlotButton_Update = function(arg)
@@ -199,19 +188,16 @@ module.enable = function(self)
 
   do -- bags
     local color = { r = .5, g = .5, b = .46 }
-
     for i = 0, 3 do
       AddBorder(_G["CharacterBag"..i.."Slot"], 3, color)
       AddTexture(_G["CharacterBag"..i.."Slot"], 14, color)
     end
-
     for i = 1, 12 do
       for k = 1, MAX_CONTAINER_ITEMS do
         AddBorder(_G["ContainerFrame"..i.."Item"..k], 3, color)
         AddTexture(_G["ContainerFrame"..i.."Item"..k], 14, color)
       end
     end
-
     local refresh_bags = function()
       for i = 1, 12 do
         local frame = _G["ContainerFrame"..i]
@@ -220,70 +206,66 @@ module.enable = function(self)
           local id = frame:GetID()
           for i = 1, MAX_CONTAINER_ITEMS do
             local button = _G[name.."Item"..i]
-
-            if not defcolor["bag"] then
-              defcolor["bag"] = { button.ShaguTweaks_border:GetBackdropBorderColor() }
-            end
-
-            button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["bag"][1], defcolor["bag"][2], defcolor["bag"][3], 1)
-            button.ShaguTweaks_texture:SetVertexColor(defcolor["bag"][1], defcolor["bag"][2], defcolor["bag"][3], 0)
-
-            local link = GetContainerItemLink(id, button:GetID())
-            if button and button:IsShown() and link then
-              local _, _, istring  = string.find(link, "|H(.+)|h")
-              local _, _, quality, _, _, itype = GetItemInfo(istring)
-              if itype == "Quest" then
-                button.ShaguTweaks_border:SetBackdropBorderColor(1,1,0)
-                button.ShaguTweaks_texture:SetVertexColor(1,1,0,1)
-              elseif quality then
-                SetGlowForQuality(button, quality, defcolor["bag"])
+            if button and button.ShaguTweaks_border and button.ShaguTweaks_texture then
+              if not defcolor["bag"] then
+                defcolor["bag"] = { button.ShaguTweaks_border:GetBackdropBorderColor() }
+              end
+              button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["bag"][1], defcolor["bag"][2], defcolor["bag"][3], 1)
+              button.ShaguTweaks_texture:SetVertexColor(defcolor["bag"][1], defcolor["bag"][2], defcolor["bag"][3], 0)
+              local link = GetContainerItemLink(id, button:GetID())
+              if button:IsShown() and link then
+                local _, _, istring = string.find(link, "|H(.+)|h")
+                local _, _, quality, _, _, itype = GetItemInfo(istring)
+                if itype == "Quest" then
+                  button.ShaguTweaks_border:SetBackdropBorderColor(1, 1, 0, 1)
+                  button.ShaguTweaks_texture:SetVertexColor(1, 1, 0, 0.7)
+                elseif quality then
+                  SetGlowForQuality(button, quality, defcolor["bag"])
+                end
               end
             end
           end
         end
       end
     end
-
     local bags = CreateFrame("Frame", nil, ContainerFrame1)
     bags:RegisterEvent("BAG_UPDATE")
     bags:SetScript("OnEvent", refresh_bags)
-
     local HookContainerFrame_OnShow = ContainerFrame_OnShow
     function ContainerFrame_OnShow() refresh_bags() HookContainerFrame_OnShow() end
-
     local HookContainerFrame_OnHide = ContainerFrame_OnHide
     function ContainerFrame_OnHide() refresh_bags() HookContainerFrame_OnHide() end
   end
 
   do -- bank
+    local color = { r = .5, g = .5, b = .46 }
     for i = 1, 28 do
       AddBorder(_G["BankFrameItem"..i], 3, color)
       AddTexture(_G["BankFrameItem"..i], 14, color)
     end
-
     local refresh_bank = function()
       for i = 1, 28 do
         local button = _G["BankFrameItem"..i]
-		    local link = GetContainerItemLink(-1, i)
+        local link = GetContainerItemLink(-1, i)
         if button then
           if not defcolor["bank"] then
             defcolor["bank"] = { button.ShaguTweaks_border:GetBackdropBorderColor() }
           end
-
           button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["bank"][1], defcolor["bank"][2], defcolor["bank"][3], 1)
           button.ShaguTweaks_texture:SetVertexColor(defcolor["bank"][1], defcolor["bank"][2], defcolor["bank"][3], 0)
-
           if link then
             local _, _, istring = string.find(link, "|H(.+)|h")
-            local _, _, q = GetItemInfo(istring)
-            if q and q > 1 then
-              SetGlowForQuality(button, q, defcolor["bank"])
+            local _, _, quality = GetItemInfo(istring)
+            if IsQuestItem(link) then
+              button.ShaguTweaks_border:SetBackdropBorderColor(1, 1, 0, 1)
+              button.ShaguTweaks_texture:SetVertexColor(1, 1, 0, 0.7)
+            elseif quality and quality > 1 then
+              SetGlowForQuality(button, quality, defcolor["bank"])
             end
           end
         end
       end
     end
-
     local bank = CreateFrame("Frame", nil, BankFrame)
     bank:RegisterEvent("PLAYERBANKSLOTS_CHANGED")
     bank:SetScript("OnEvent", refresh_bank)
@@ -293,32 +275,26 @@ module.enable = function(self)
   do -- weapon buff
     AddBorder(TempEnchant1, 3, {.2,.2,.2})
     AddBorder(TempEnchant2, 3, {.2,.2,.2})
-
     local hookBuffFrame_Enchant_OnUpdate = BuffFrame_Enchant_OnUpdate
     function BuffFrame_Enchant_OnUpdate(elapsed)
       hookBuffFrame_Enchant_OnUpdate(elapsed)
-
-      -- return early without any weapon enchants
       local mh, _, _, oh = GetWeaponEnchantInfo()
-    	if not mh and not oh then return end
-
-      -- update weapon enchant 1
+      if not mh and not oh then return end
       local r, g, b = GetItemQualityColor(GetInventoryItemQuality("player", TempEnchant1:GetID()) or 1)
       TempEnchant1.ShaguTweaks_border:SetBackdropBorderColor(r,g,b,1)
       TempEnchant1Border:SetAlpha(0)
-
-      -- update weapon enchant 2
-      local r, g, b = GetItemQualityColor(GetInventoryItemQuality("player", TempEnchant2:GetID()) or 1)
+      r, g, b = GetItemQualityColor(GetInventoryItemQuality("player", TempEnchant2:GetID()) or 1)
       TempEnchant2.ShaguTweaks_border:SetBackdropBorderColor(r,g,b,1)
       TempEnchant2Border:SetAlpha(0)
     end
   end
 
-  do -- merchant
+do -- merchant
+    local color = { r = .5, g = .5, b = .46 } -- Define color here
     AddBorder(_G["MerchantBuyBackItemItemButton"], 3, color)
     AddTexture(_G["MerchantBuyBackItemItemButton"], 14, color)
 
-    for i = 1, 12 do
+    for i = 1, 10 do -- Vanilla WoW uses 10 items per page
       AddBorder(_G["MerchantItem"..i.."ItemButton"], 3, color)
       AddTexture(_G["MerchantItem"..i.."ItemButton"], 14, color)
     end
@@ -326,22 +302,31 @@ module.enable = function(self)
     local refresh_merchant = function()
       if MerchantFrame.selectedTab == 1 then
         -- merchant tab
-        for i = 1, GetMerchantNumItems() do
+        local page = MerchantFrame.page or 1 -- Current page, defaults to 1
+        local startIndex = (page - 1) * MERCHANT_ITEMS_PER_PAGE + 1
+        local endIndex = startIndex + MERCHANT_ITEMS_PER_PAGE - 1
+
+        for i = 1, MERCHANT_ITEMS_PER_PAGE do -- 10 items per page in Vanilla
           local button = _G["MerchantItem"..i.."ItemButton"]
           if button then
             if not defcolor["merchant"] then
               defcolor["merchant"] = { button.ShaguTweaks_border:GetBackdropBorderColor() }
             end
 
+            -- Reset to default color
             button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["merchant"][1], defcolor["merchant"][2], defcolor["merchant"][3], 0)
             button.ShaguTweaks_texture:SetVertexColor(defcolor["merchant"][1], defcolor["merchant"][2], defcolor["merchant"][3], 0)
 
-            local link = GetMerchantItemLink(i)
-            if link then
-              local _, _, istring = string.find(link, "|H(.+)|h")
-              local _, _, q = GetItemInfo(istring)
-              if q then
-                SetGlowForQuality(button, q, defcolor["merchant"])
+            -- Calculate the actual merchant item index based on page
+            local merchantIndex = startIndex + (i - 1)
+            if merchantIndex <= GetMerchantNumItems() then
+              local link = GetMerchantItemLink(merchantIndex)
+              if link then
+                local _, _, istring = string.find(link, "|H(.+)|h")
+                local _, _, q = GetItemInfo(istring)
+                if q then
+                  SetGlowForQuality(button, q, defcolor["merchant"])
+                end
               end
             end
           end
@@ -367,9 +352,13 @@ module.enable = function(self)
         end
       else
         -- buyback tab
-        for i = 1, GetNumBuybackItems() do
+        for i = 1, MERCHANT_ITEMS_PER_PAGE do -- 10 items per page
           local button = _G["MerchantItem"..i.."ItemButton"]
           if button then
+            if not defcolor["merchant"] then
+              defcolor["merchant"] = { button.ShaguTweaks_border:GetBackdropBorderColor() }
+            end
+
             button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["merchant"][1], defcolor["merchant"][2], defcolor["merchant"][3], 0)
             button.ShaguTweaks_texture:SetVertexColor(defcolor["merchant"][1], defcolor["merchant"][2], defcolor["merchant"][3], 0)
 
@@ -387,40 +376,362 @@ module.enable = function(self)
       end
     end
 
+    -- Hook the original MerchantFrame_Update
     local HookMerchantFrame_Update = MerchantFrame_Update
     MerchantFrame_Update = function()
       HookMerchantFrame_Update()
       refresh_merchant()
     end
-  end
+
+    -- Hook Next Page Button (1.12 compatible)
+    local origNextPageOnClick = MerchantNextPageButton:GetScript("OnClick")
+    MerchantNextPageButton:SetScript("OnClick", function()
+      if origNextPageOnClick then
+        origNextPageOnClick()
+      end
+      refresh_merchant()
+    end)
+
+    -- Hook Previous Page Button (1.12 compatible)
+    local origPrevPageOnClick = MerchantPrevPageButton:GetScript("OnClick")
+    MerchantPrevPageButton:SetScript("OnClick", function()
+      if origPrevPageOnClick then
+        origPrevPageOnClick()
+      end
+      refresh_merchant()
+    end)
+end
+
+do -- quest
+    local color = { r = .5, g = .5, b = .46 } -- Default border color
+
+    -- Add borders and textures to quest reward items, aligned to icons
+    local function SetupQuestButtons()
+        for i = 1, 4 do
+            local button = _G["QuestDetailItem" .. i]
+            if button then
+                local icon = _G["QuestDetailItem" .. i .. "IconTexture"]
+                if icon then
+                    if not button.ShaguTweaks_border then
+                        button.ShaguTweaks_border = AddBorder(button, 3, color)
+                        button.ShaguTweaks_border:ClearAllPoints()
+                        button.ShaguTweaks_border:SetPoint("TOPLEFT", icon, "TOPLEFT", -2, 2)
+                        button.ShaguTweaks_border:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", 2, -2)
+                    end
+                    if not button.ShaguTweaks_texture then
+                        button.ShaguTweaks_texture = AddTexture(button, 14, color)
+                        button.ShaguTweaks_texture:ClearAllPoints()
+                        button.ShaguTweaks_texture:SetPoint("TOPLEFT", icon, "TOPLEFT", -14, 14)
+                        button.ShaguTweaks_texture:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", 14, -14)
+                    end
+                end
+            end
+        end
+    end
+
+    local refresh_quest_items = function()
+        for i = 1, 4 do
+            local button = _G["QuestDetailItem" .. i]
+            if button and button.ShaguTweaks_border and button.ShaguTweaks_texture then
+                if not defcolor["quest"] then
+                    defcolor["quest"] = { button.ShaguTweaks_border:GetBackdropBorderColor() }
+                end
+                button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["quest"][1], defcolor["quest"][2], defcolor["quest"][3], 0)
+                button.ShaguTweaks_texture:SetVertexColor(defcolor["quest"][1], defcolor["quest"][2], defcolor["quest"][3], 0)
+                
+                local link = GetQuestItemLink("reward", i)
+                if link then
+                    local _, _, istring = string.find(link, "|H(.+)|h")
+                    local _, _, quality = GetItemInfo(istring)
+                    if quality and quality > 1 then
+                        local r, g, b = GetItemQualityColor(quality)
+                        button.ShaguTweaks_border:SetBackdropBorderColor(r, g, b, 1)
+                        button.ShaguTweaks_texture:SetVertexColor(r, g, b, 0.7)
+                    end
+                end
+            end
+        end
+    end
+
+    -- Hook QuestFrame events
+    local HookQuestFrame_OnShow = QuestFrame_OnShow
+    QuestFrame_OnShow = function()
+        HookQuestFrame_OnShow()
+        SetupQuestButtons()
+        refresh_quest_items()
+    end
+
+    local HookQuestFrame_OnEvent = QuestFrame_OnEvent
+    QuestFrame_OnEvent = function(event)
+        HookQuestFrame_OnEvent(event)
+        if event == "QUEST_DETAIL" or event == "QUEST_PROGRESS" or event == "QUEST_COMPLETE" then
+            SetupQuestButtons()
+            refresh_quest_items()
+        end
+    end
+end   
+
+do -- log
+    local color = { r = .5, g = .5, b = .46 } -- Default border color
+
+    -- Add borders and textures to quest log reward items
+    local function SetupQuestLogButtons()
+        for i = 1, 4 do
+            local button = _G["QuestLogItem" .. i]
+            if button then
+                local icon = _G["QuestLogItem" .. i .. "IconTexture"]
+                if icon then
+                    if not button.ShaguTweaks_border then
+                        button.ShaguTweaks_border = AddBorder(button, 3, color)
+                        button.ShaguTweaks_border:ClearAllPoints()
+                        button.ShaguTweaks_border:SetPoint("TOPLEFT", icon, "TOPLEFT", -2, 2)
+                        button.ShaguTweaks_border:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", 2, -2)
+                    end
+                    if not button.ShaguTweaks_texture then
+                        button.ShaguTweaks_texture = AddTexture(button, 14, color)
+                        button.ShaguTweaks_texture:ClearAllPoints()
+                        button.ShaguTweaks_texture:SetPoint("TOPLEFT", icon, "TOPLEFT", -14, 14)
+                        button.ShaguTweaks_texture:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", 14, -14)
+                    end
+                end
+            end
+        end
+    end
+
+    local refresh_quest_log_items = function()
+        local questIndex = GetQuestLogSelection()
+        if not questIndex or questIndex == 0 then return end
+        
+        for i = 1, 4 do
+            local button = _G["QuestLogItem" .. i]
+            if button then
+                if button.ShaguTweaks_border and button.ShaguTweaks_texture then
+                    if not defcolor["log"] then
+                        defcolor["log"] = { button.ShaguTweaks_border:GetBackdropBorderColor() }
+                    end
+                    button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["log"][1], defcolor["log"][2], defcolor["log"][3], 0)
+                    button.ShaguTweaks_texture:SetVertexColor(defcolor["log"][1], defcolor["log"][2], defcolor["log"][3], 0)
+                    
+                    local link = GetQuestLogItemLink("reward", i) or GetQuestLogItemLink("choice", i)
+                    if link then
+                        local _, _, istring = string.find(link, "|H(.+)|h")
+                        local _, _, quality = GetItemInfo(istring)
+                        if quality and quality > 1 then
+                            local r, g, b = GetItemQualityColor(quality)
+                            button.ShaguTweaks_border:SetBackdropBorderColor(r, g, b, 1)
+                            button.ShaguTweaks_texture:SetVertexColor(r, g, b, 0.7)
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- Hook quest log opening
+    local logFrame = CreateFrame("Frame", nil, QuestLogFrame)
+    logFrame:SetScript("OnShow", function(self)
+        SetupQuestLogButtons()
+        refresh_quest_log_items()
+    end)
+
+    -- Hook QuestLogTitleX OnClick for manual updates
+    for i = 1, 20 do
+        local titleButton = _G["QuestLogTitle" .. i]
+        if titleButton then
+            local origOnClick = titleButton:GetScript("OnClick")
+            titleButton:SetScript("OnClick", function()
+                if origOnClick then
+                    origOnClick()
+                end
+                SetupQuestLogButtons()
+                refresh_quest_log_items()
+            end)
+        end
+    end
+end
+
+do -- mail
+    local color = { r = .5, g = .5, b = .46 } -- Default color for borders
+
+    -- Add border and texture to OpenMailPackageButton
+    AddBorder(OpenMailPackageButton, 3, color)
+    AddTexture(OpenMailPackageButton, 14, color)
+
+    -- Function to map RGB to quality (from SimpleTest)
+    local function GetQualityFromRGB(r, g, b)
+        if math.abs(r - g) < 0.1 and math.abs(g - b) < 0.1 and r > 0.5 and r < 0.7 then return 0 end -- Poor
+        if r > 0.9 and g > 0.9 and b > 0.9 then return 1 end -- Common
+        if r < 0.2 and g > 0.9 and b < 0.2 then return 2 end -- Uncommon
+        if r < 0.2 and g < 0.5 and b > 0.8 then return 3 end -- Rare
+        if r > 0.5 and g < 0.3 and b > 0.9 then return 4 end -- Epic
+        if r > 0.9 and g > 0.5 and b < 0.2 then return 5 end -- Legendary
+        return 1 -- Default to Common
+    end
+
+    local refresh_mail_attachment = function(mailIndex)
+        local button = OpenMailPackageButton
+        if button then
+            if not defcolor["mail"] then
+                defcolor["mail"] = { button.ShaguTweaks_border:GetBackdropBorderColor() }
+            end
+
+            -- Reset to default color
+            button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["mail"][1], defcolor["mail"][2], defcolor["mail"][3], 0)
+            button.ShaguTweaks_texture:SetVertexColor(defcolor["mail"][1], defcolor["mail"][2], defcolor["mail"][3], 0)
+
+            -- Check if the selected mail has an attachment and get its quality color
+            if mailIndex and mailIndex > 0 then
+                local icon = _G["MailItem" .. mailIndex .. "ButtonIcon"]
+                if icon and icon:IsVisible() then
+                    -- Get mail index based on page
+                    local pageNum = InboxFrame.pageNum or 1
+                    local absoluteMailIndex = (pageNum - 1) * 7 + mailIndex
+                    local numItems = GetInboxNumItems()
+                    
+                    if absoluteMailIndex <= numItems then
+                        local name = GetInboxItem(absoluteMailIndex)
+                        if name then
+                            -- Use tooltip to infer quality color
+                            GameTooltip:ClearLines()
+                            GameTooltip:SetInboxItem(absoluteMailIndex, 1)
+                            local numRegions = GameTooltip:NumLines()
+                            local r, g, b = 1, 1, 1 -- Default to white (Common)
+                            if numRegions > 0 then
+                                local regions = {GameTooltip:GetRegions()}
+                                for i, region in ipairs(regions) do
+                                    if region and region:IsObjectType("FontString") then
+                                        local text = region:GetText()
+                                        if text and text == name then
+                                            r, g, b = region:GetTextColor()
+                                            break
+                                        end
+                                    end
+                                end
+                            end
+                            -- Only apply glow if quality is Uncommon (2) or higher
+                            local quality = GetQualityFromRGB(r, g, b)
+                            if quality >= 2 then
+                                button.ShaguTweaks_border:SetBackdropBorderColor(r, g, b, 0.7)
+                                button.ShaguTweaks_texture:SetVertexColor(r, g, b, 0.7)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- Individual handlers for each mail item button
+    local mailButton1 = _G["MailItem1Button"]
+    if mailButton1 then
+        local origOnClick = mailButton1:GetScript("OnClick")
+        mailButton1:SetScript("OnClick", function()
+            if origOnClick then origOnClick() end
+            refresh_mail_attachment(1)
+        end)
+    end
+
+    local mailButton2 = _G["MailItem2Button"]
+    if mailButton2 then
+        local origOnClick = mailButton2:GetScript("OnClick")
+        mailButton2:SetScript("OnClick", function()
+            if origOnClick then origOnClick() end
+            refresh_mail_attachment(2)
+        end)
+    end
+
+    local mailButton3 = _G["MailItem3Button"]
+    if mailButton3 then
+        local origOnClick = mailButton3:GetScript("OnClick")
+        mailButton3:SetScript("OnClick", function()
+            if origOnClick then origOnClick() end
+            refresh_mail_attachment(3)
+        end)
+    end
+
+    local mailButton4 = _G["MailItem4Button"]
+    if mailButton4 then
+        local origOnClick = mailButton4:GetScript("OnClick")
+        mailButton4:SetScript("OnClick", function()
+            if origOnClick then origOnClick() end
+            refresh_mail_attachment(4)
+        end)
+    end
+
+    local mailButton5 = _G["MailItem5Button"]
+    if mailButton5 then
+        local origOnClick = mailButton5:GetScript("OnClick")
+        mailButton5:SetScript("OnClick", function()
+            if origOnClick then origOnClick() end
+            refresh_mail_attachment(5)
+        end)
+    end
+
+    local mailButton6 = _G["MailItem6Button"]
+    if mailButton6 then
+        local origOnClick = mailButton6:GetScript("OnClick")
+        mailButton6:SetScript("OnClick", function()
+            if origOnClick then origOnClick() end
+            refresh_mail_attachment(6)
+        end)
+    end
+
+    local mailButton7 = _G["MailItem7Button"]
+    if mailButton7 then
+        local origOnClick = mailButton7:GetScript("OnClick")
+        mailButton7:SetScript("OnClick", function()
+            if origOnClick then origOnClick() end
+            refresh_mail_attachment(7)
+        end)
+    end
+
+    -- Optional: Refresh when mail frame opens to handle initial state
+    local HookMailFrame_OnShow = MailFrame_OnShow
+    MailFrame_OnShow = function()
+        HookMailFrame_OnShow()
+        refresh_mail_attachment(0)
+    end
+
+    -- Hook page navigation buttons
+    local nextButton = _G["InboxNextPageButton"]
+    if nextButton then
+        local origOnClickNext = nextButton:GetScript("OnClick")
+        nextButton:SetScript("OnClick", function()
+            if origOnClickNext then origOnClickNext() end
+            refresh_mail_attachment(0) -- Reset glow on page change
+        end)
+    end
+
+    local prevButton = _G["InboxPrevPageButton"]
+    if prevButton then
+        local origOnClickPrev = prevButton:GetScript("OnClick")
+        prevButton:SetScript("OnClick", function()
+            if origOnClickPrev then origOnClickPrev() end
+            refresh_mail_attachment(0) -- Reset glow on page change
+        end)
+    end
+end
+
 
   do -- tradeskill
     if not dis then
       local refresh_tradeskill = function()
         local id = TradeSkillFrame.selectedSkill
-
         do
-          -- icon
           local button = _G["TradeSkillSkillIcon"]
           local border = button.ShaguTweaks_border
-
           if not border then
             border = AddBorder(button, 3, { r = .5, g = .5, b = .5 })
           end
-
           local texture = button.ShaguTweaks_texture
-
           if not texture then
             texture = AddTexture(button, 14, { r = .5, g = .5, b = .5 })
           end
-
           if not defcolor["tradeskill"] then
             defcolor["tradeskill"] = { border:GetBackdropBorderColor() }
           end
-
           button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["tradeskill"][1], defcolor["tradeskill"][2], defcolor["tradeskill"][3], 0)
           button.ShaguTweaks_texture:SetVertexColor(defcolor["tradeskill"][1], defcolor["tradeskill"][2], defcolor["tradeskill"][3], 0)
-
           local link = GetTradeSkillItemLink(id)
           if link then
             local _, _, istring = string.find(link, "|H(.+)|h")
@@ -430,13 +741,10 @@ module.enable = function(self)
             end
           end
         end
-
         do
-          -- reagents
           for i = 1, GetTradeSkillNumReagents(id) do
             local button = _G["TradeSkillReagent"..i]
             local border = button.ShaguTweaks_border
-
             if not border then
               border = AddBorder(button, 1, { r = .5, g = .5, b = .5 })
               border:ClearAllPoints()
@@ -445,35 +753,29 @@ module.enable = function(self)
               border:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", 2, -2)
               border:SetFrameLevel(1)
             end
-
             local texture = button.ShaguTweaks_texture
-
             if not texture then
               texture = AddTexture(button, 14, { r = .5, g = .5, b = .5 })
               texture:ClearAllPoints()
               texture:SetPoint("TOPLEFT", border, "TOPLEFT", -12, 12)
               texture:SetPoint("BOTTOMRIGHT", border, "BOTTOMRIGHT", 12, -12)
             end
-
             if not defcolor["tradeskill"] then
               defcolor["tradeskill"] = { border:GetBackdropBorderColor() }
             end
-
             button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["tradeskill"][1], defcolor["tradeskill"][2], defcolor["tradeskill"][3], 0)
             button.ShaguTweaks_texture:SetVertexColor(defcolor["tradeskill"][1], defcolor["tradeskill"][2], defcolor["tradeskill"][3], 0)
-
             local link = GetTradeSkillReagentItemLink(id, i)
             if link then
               local _, _, istring = string.find(link, "|H(.+)|h")
               local _, _, q = GetItemInfo(istring)
-                if q then
+              if q then
                 SetGlowForQuality(button, q, defcolor["tradeskill"])
               end
             end
           end
         end
       end
-
       HookAddonOrVariable("Blizzard_TradeSkillUI", function()
         local HookTradeSkillFrame_Update = TradeSkillFrame_Update
         TradeSkillFrame_Update = function(arg)
@@ -488,29 +790,21 @@ module.enable = function(self)
     if not dis then
       local refresh_craft = function()
         local id = GetCraftSelectionIndex()
-
         do
-          -- icon
           local button = _G["CraftIcon"]
           local border = button.ShaguTweaks_border
-
           if not border then
             border = AddBorder(button, 3, { r = .5, g = .5, b = .5 })
           end
-
           local texture = button.ShaguTweaks_texture
-
           if not texture then
             texture = AddTexture(button, 14, { r = .5, g = .5, b = .5 })
           end
-
           if not defcolor["craft"] then
             defcolor["craft"] = { border:GetBackdropBorderColor() }
           end
-
           button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["craft"][1], defcolor["craft"][2], defcolor["craft"][3], 0)
           button.ShaguTweaks_texture:SetVertexColor(defcolor["craft"][1], defcolor["craft"][2], defcolor["craft"][3], 0)
-
           local iname = GetCraftInfo(id)
           local link = GetItemLinkByName(iname)
           if link then
@@ -521,13 +815,10 @@ module.enable = function(self)
             end
           end
         end
-
         do
-          -- reagents
           for i = 1, GetCraftNumReagents(id) do
             local button = _G["CraftReagent"..i]
             local border = button.ShaguTweaks_border
-
             if not border then
               border = AddBorder(button, 1, { r = .5, g = .5, b = .5 })
               border:ClearAllPoints()
@@ -536,23 +827,18 @@ module.enable = function(self)
               border:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", 2, -2)
               border:SetFrameLevel(1)
             end
-
             local texture = button.ShaguTweaks_texture
-
             if not texture then
               texture = AddTexture(button, 14, { r = .5, g = .5, b = .5 })
               texture:ClearAllPoints()
               texture:SetPoint("TOPLEFT", border, "TOPLEFT", -12, 12)
               texture:SetPoint("BOTTOMRIGHT", border, "BOTTOMRIGHT", 12, -12)
             end
-
             if not defcolor["craft"] then
               defcolor["craft"] = { border:GetBackdropBorderColor() }
             end
-
             button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["craft"][1], defcolor["craft"][2], defcolor["craft"][3], 0)
             button.ShaguTweaks_texture:SetVertexColor(defcolor["craft"][1], defcolor["craft"][2], defcolor["craft"][3], 0)
-
             local iname = GetCraftReagentInfo(id, i)
             local link = GetItemLinkByName(iname)
             if link then
@@ -565,7 +851,6 @@ module.enable = function(self)
           end
         end
       end
-
       HookAddonOrVariable("Blizzard_CraftUI", function()
         local HookCraftFrame_Update = CraftFrame_Update
         CraftFrame_Update = function(arg)
@@ -576,73 +861,25 @@ module.enable = function(self)
     end
   end
 
-  do -- mail
-    for i = 1, 7 do
-      AddBorder(_G["MailItem"..i.."Button"], 3, color)
-      AddTexture(_G["MailItem"..i.."Button"], 14, color)
-    end
 
-    AddBorder(_G["OpenMailPackageButton"], 3, color)
-    AddTexture(_G["OpenMailPackageButton"], 14, color)
-
-    local refresh_mail = function()
-      for i = 1, GetInboxNumItems() do
-        local button = _G["MailItem"..i.."Button"]
-        if button then
-          if not defcolor["mail"] then
-            defcolor["mail"] = { button.ShaguTweaks_border:GetBackdropBorderColor() }
-          end
-
-          button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["mail"][1], defcolor["mail"][2], defcolor["mail"][3], 0)
-          button.ShaguTweaks_texture:SetVertexColor(defcolor["mail"][1], defcolor["mail"][2], defcolor["mail"][3], 0)
-
-          local _, _, _, q = GetInboxItem(i)
-          if q then
-            SetGlowForQuality(button, q, defcolor["mail"])
-          end
-        end
-      end
-
-      if InboxFrame.openMailID then
-        local button = _G["OpenMailPackageButton"]
-
-        button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["mail"][1], defcolor["mail"][2], defcolor["mail"][3], 0)
-        button.ShaguTweaks_texture:SetVertexColor(defcolor["mail"][1], defcolor["mail"][2], defcolor["mail"][3], 0)
-
-        local _, _, _, q = GetInboxItem(InboxFrame.openMailID)
-        if q then
-          SetGlowForQuality(button, q, defcolor["mail"])
-        end
-      end
-    end
-
-    local HookOpenMail_Update = OpenMail_Update
-    OpenMail_Update = function()
-      HookOpenMail_Update()
-      refresh_mail()
-    end
-  end
 
   do -- trade
-    for i = 1, 7  do
+    local color = { r = .5, g = .5, b = .46 }
+    for i = 1, 7 do
       AddBorder(_G["TradeRecipientItem"..i.."ItemButton"], 3, color)
       AddTexture(_G["TradeRecipientItem"..i.."ItemButton"], 14, color)
-
       AddBorder(_G["TradePlayerItem"..i.."ItemButton"], 3, color)
       AddTexture(_G["TradePlayerItem"..i.."ItemButton"], 14, color)
     end
-
     local refresh_trade_target = function()
-      for i = 1, 7  do
+      for i = 1, 7 do
         local button = _G["TradeRecipientItem"..i.."ItemButton"]
         if button then
           if not defcolor["trade"] then
             defcolor["trade"] = { button.ShaguTweaks_border:GetBackdropBorderColor() }
           end
-
           button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["trade"][1], defcolor["trade"][2], defcolor["trade"][3], 0)
           button.ShaguTweaks_texture:SetVertexColor(defcolor["trade"][1], defcolor["trade"][2], defcolor["trade"][3], 0)
-
           local n, _, _, q = GetTradeTargetItemInfo(i)
           if n and q then
             SetGlowForQuality(button, q, defcolor["trade"])
@@ -650,18 +887,15 @@ module.enable = function(self)
         end
       end
     end
-
     local refresh_trade_player = function()
-      for i = 1, 7  do
+      for i = 1, 7 do
         local button = _G["TradePlayerItem"..i.."ItemButton"]
         if button then
-
           button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["trade"][1], defcolor["trade"][2], defcolor["trade"][3], 0)
           button.ShaguTweaks_texture:SetVertexColor(defcolor["trade"][1], defcolor["trade"][2], defcolor["trade"][3], 0)
-
           local link = GetTradePlayerItemLink(i)
           if link then
-            local _, _, istring  = string.find(link, "|H(.+)|h")
+            local _, _, istring = string.find(link, "|H(.+)|h")
             local _, _, q = GetItemInfo(istring)
             if q then
               SetGlowForQuality(button, q, defcolor["trade"])
@@ -670,7 +904,6 @@ module.enable = function(self)
         end
       end
     end
-
     local trade = CreateFrame("Frame", nil, TradeFrame)
     trade:RegisterEvent("TRADE_SHOW")
     trade:RegisterEvent("TRADE_PLAYER_ITEM_CHANGED")
@@ -688,33 +921,75 @@ module.enable = function(self)
   end
 
   do -- loot
+    local color = { r = .5, g = .5, b = .46 }
     for i = 1, 4 do
-      AddBorder(_G["LootButton"..i], 3, color)
-      AddTexture(_G["LootButton"..i], 14, color)
+      local button = _G["LootButton"..i]
+      if button then
+        AddBorder(button, 3, color)
+        AddTexture(button, 14, color)
+      end
     end
-
     local refresh_loot = function()
+      local numLootItems = GetNumLootItems()
+      if numLootItems == 0 then return end
+      local page = LootFrame.page or 1
+      local itemsPerPage = 4
+      local startSlot = (page - 1) * itemsPerPage + 1
+      local endSlot = math.min(startSlot + itemsPerPage - 1, numLootItems)
       for i = 1, 4 do
         local button = _G["LootButton"..i]
-        if button then
+        if button and button.ShaguTweaks_border and button.ShaguTweaks_texture then
           if not defcolor["loot"] then
             defcolor["loot"] = { button.ShaguTweaks_border:GetBackdropBorderColor() }
           end
-
           button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["loot"][1], defcolor["loot"][2], defcolor["loot"][3], 0)
           button.ShaguTweaks_texture:SetVertexColor(defcolor["loot"][1], defcolor["loot"][2], defcolor["loot"][3], 0)
-
-          local _, _, _, q = GetLootSlotInfo(i)
-          if q then
-            SetGlowForQuality(button, q, defcolor["loot"])
+        end
+      end
+      for slot = startSlot, endSlot do
+        local buttonIndex = (slot - startSlot) + 1
+        local button = _G["LootButton"..buttonIndex]
+        if button and button.ShaguTweaks_border and button.ShaguTweaks_texture then
+          local link = GetLootSlotLink(slot)
+          local _, itemName, _, quality = GetLootSlotInfo(slot)
+          if link and IsQuestItem(link) then
+            button.ShaguTweaks_border:SetBackdropBorderColor(1, 1, 0, 1)
+            button.ShaguTweaks_texture:SetVertexColor(1, 1, 0, 0.7)
+          elseif itemName and quality == 0 and string.find(itemName, "Quest Item") then
+            button.ShaguTweaks_border:SetBackdropBorderColor(1, 1, 0, 1)
+            button.ShaguTweaks_texture:SetVertexColor(1, 1, 0, 0.7)
+          elseif quality then
+            SetGlowForQuality(button, quality, defcolor["loot"])
           end
         end
       end
     end
-
     local loot = CreateFrame("Frame", nil, LootFrame)
     loot:RegisterEvent("LOOT_OPENED")
     loot:RegisterEvent("LOOT_SLOT_CLEARED")
-    loot:SetScript("OnEvent", refresh_loot)
+    loot:RegisterEvent("LOOT_CLOSED")
+    loot:SetScript("OnEvent", function(self, event, arg1)
+      if event == "LOOT_CLOSED" then
+        for i = 1, 4 do
+          local button = _G["LootButton"..i]
+          if button and button.ShaguTweaks_border and button.ShaguTweaks_texture then
+            button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["loot"][1], defcolor["loot"][2], defcolor["loot"][3], 0)
+            button.ShaguTweaks_texture:SetVertexColor(defcolor["loot"][1], defcolor["loot"][2], defcolor["loot"][3], 0)
+          end
+        end
+      else
+        refresh_loot()
+      end
+    end)
+    local HookLootFrameNext_OnClick = LootFrameNext_OnClick
+    LootFrameNext_OnClick = function(arg1)
+      HookLootFrameNext_OnClick(arg1)
+      refresh_loot()
+    end
+    local HookLootFramePrev_OnClick = LootFramePrev_OnClick
+    LootFramePrev_OnClick = function(arg1)
+      HookLootFramePrev_OnClick(arg1)
+      refresh_loot()
+    end
   end
 end
