@@ -403,15 +403,14 @@ do -- merchant
 end
 
 do -- quest
-    local color = { r = .5, g = .5, b = .46 } -- Default border color
+    local color = { r = .5, g = .5, b = .46 }
 
-    -- Add borders and textures to quest reward items, aligned to icons
     local function SetupQuestButtons()
         for i = 1, 4 do
             local button = _G["QuestDetailItem" .. i]
-            if button then
+            if button and button:IsVisible() then
                 local icon = _G["QuestDetailItem" .. i .. "IconTexture"]
-                if icon then
+                if icon and icon:IsVisible() then
                     if not button.ShaguTweaks_border then
                         button.ShaguTweaks_border = AddBorder(button, 3, color)
                         button.ShaguTweaks_border:ClearAllPoints()
@@ -429,7 +428,9 @@ do -- quest
         end
     end
 
-    local refresh_quest_items = function()
+    local function refresh_quest_items()
+        local numChoices = GetNumQuestChoices()
+        local numRewards = GetNumQuestRewards()
         for i = 1, 4 do
             local button = _G["QuestDetailItem" .. i]
             if button and button.ShaguTweaks_border and button.ShaguTweaks_texture then
@@ -439,7 +440,12 @@ do -- quest
                 button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["quest"][1], defcolor["quest"][2], defcolor["quest"][3], 0)
                 button.ShaguTweaks_texture:SetVertexColor(defcolor["quest"][1], defcolor["quest"][2], defcolor["quest"][3], 0)
                 
-                local link = GetQuestItemLink("reward", i)
+                local link
+                if i <= numChoices then
+                    link = GetQuestItemLink("choice", i)
+                elseif i <= numChoices + numRewards then
+                    link = GetQuestItemLink("reward", i - numChoices)
+                end
                 if link then
                     local _, _, istring = string.find(link, "|H(.+)|h")
                     local _, _, quality = GetItemInfo(istring)
@@ -453,23 +459,117 @@ do -- quest
         end
     end
 
-    -- Hook QuestFrame events
-    local HookQuestFrame_OnShow = QuestFrame_OnShow
-    QuestFrame_OnShow = function()
-        HookQuestFrame_OnShow()
-        SetupQuestButtons()
-        refresh_quest_items()
-    end
-
-    local HookQuestFrame_OnEvent = QuestFrame_OnEvent
-    QuestFrame_OnEvent = function(event)
-        HookQuestFrame_OnEvent(event)
-        if event == "QUEST_DETAIL" or event == "QUEST_PROGRESS" or event == "QUEST_COMPLETE" then
+    local questUpdater = CreateFrame("Frame", "MyQuestUpdater", QuestFrame)
+    questUpdater:RegisterEvent("QUEST_DETAIL")
+    questUpdater:RegisterEvent("QUEST_PROGRESS")
+    questUpdater:RegisterEvent("QUEST_COMPLETE")
+    
+    local delay = 0.1
+    local elapsed = 0
+    questUpdater:SetScript("OnUpdate", function()
+        elapsed = elapsed + arg1
+        if elapsed >= delay then
             SetupQuestButtons()
             refresh_quest_items()
+            elapsed = 0
+            this:Hide()
+        end
+    end)
+    
+    questUpdater:SetScript("OnEvent", function()
+        elapsed = 0
+        this:Show()
+    end)
+    
+    questUpdater:SetScript("OnShow", function()
+        elapsed = 0
+        this:Show()
+    end)
+    questUpdater:Hide()
+end 
+
+do -- reward
+    local color = { r = .5, g = .5, b = .46 }
+
+    local function SetupRewardButtons()
+        for i = 1, 4 do
+            local button = _G["QuestRewardItem" .. i]
+            if button and button:IsVisible() then
+                local icon = _G["QuestRewardItem" .. i .. "IconTexture"]
+                if icon and icon:IsVisible() then
+                    if not button.ShaguTweaks_border then
+                        button.ShaguTweaks_border = AddBorder(button, 3, color)
+                        button.ShaguTweaks_border:ClearAllPoints()
+                        button.ShaguTweaks_border:SetPoint("TOPLEFT", icon, "TOPLEFT", -2, 2)
+                        button.ShaguTweaks_border:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", 2, -2)
+                    end
+                    if not button.ShaguTweaks_texture then
+                        button.ShaguTweaks_texture = AddTexture(button, 14, color)
+                        button.ShaguTweaks_texture:ClearAllPoints()
+                        button.ShaguTweaks_texture:SetPoint("TOPLEFT", icon, "TOPLEFT", -14, 14)
+                        button.ShaguTweaks_texture:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", 14, -14)
+                    end
+                end
+            end
         end
     end
-end   
+
+    local function refresh_reward_items()
+        local numChoices = GetNumQuestChoices()
+        local numRewards = GetNumQuestRewards()
+        for i = 1, 4 do
+            local button = _G["QuestRewardItem" .. i]
+            if button and button.ShaguTweaks_border and button.ShaguTweaks_texture then
+                if not defcolor["reward"] then
+                    defcolor["reward"] = { button.ShaguTweaks_border:GetBackdropBorderColor() }
+                end
+                button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["reward"][1], defcolor["reward"][2], defcolor["reward"][3], 0)
+                button.ShaguTweaks_texture:SetVertexColor(defcolor["reward"][1], defcolor["reward"][2], defcolor["reward"][3], 0)
+                
+                local link
+                if i <= numChoices then
+                    link = GetQuestItemLink("choice", i)
+                elseif i <= numChoices + numRewards then
+                    link = GetQuestItemLink("reward", i - numChoices)
+                end
+                if link then
+                    local _, _, istring = string.find(link, "|H(.+)|h")
+                    local _, _, quality = GetItemInfo(istring)
+                    if quality and quality > 1 then
+                        local r, g, b = GetItemQualityColor(quality)
+                        button.ShaguTweaks_border:SetBackdropBorderColor(r, g, b, 1)
+                        button.ShaguTweaks_texture:SetVertexColor(r, g, b, 0.7)
+                    end
+                end
+            end
+        end
+    end
+
+    local rewardUpdater = CreateFrame("Frame", "MyRewardUpdater", QuestFrame)
+    rewardUpdater:RegisterEvent("QUEST_COMPLETE")
+    rewardUpdater:SetScript("OnUpdate", function()
+        local elapsed = this.elapsed or 0
+        elapsed = elapsed + arg1
+        if elapsed >= 0.1 then
+            SetupRewardButtons()
+            refresh_reward_items()
+            elapsed = 0
+            this:Hide()
+        end
+        this.elapsed = elapsed
+    end)
+    
+    rewardUpdater:SetScript("OnEvent", function()
+        this.elapsed = 0
+        this:Show()
+    end)
+    
+    rewardUpdater:SetScript("OnShow", function()
+        this.elapsed = 0
+        this:Show()
+    end)
+    rewardUpdater:Hide()
+end
 
 do -- log
     local color = { r = .5, g = .5, b = .46 } -- Default border color
