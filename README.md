@@ -1,3 +1,9 @@
+This fork fixes MAIL, LOOT FRAME, QUESTLOG. Turtlewow server doesnt respond to certain item_info calls, had to create some work arounds with mouseover and onclick. 
+
+
+
+
+
 # ShaguTweaks-mods
 Adds additional vanilla 1.12 custom mods to the [ShaguTweaks](https://shagu.org/ShaguTweaks/) addon.    
 These mods aim to preserve the spirit of the default UI while providing modern quality of life features.
