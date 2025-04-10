@@ -1,4 +1,4 @@
-This fork fixes MAIL, LOOT FRAME, QUESTLOG and MERCHANT. Turtlewow server doesnt respond to certain item_info calls, had to create some work arounds with mouseover and onclick. 
+This fork fixes the glow effect on MAIL, LOOT FRAME, QUESTLOG and MERCHANT. Turtlewow server doesnt respond to certain item_info calls, had to create some work arounds with mouseover and onclick. 
 
 
 
