@@ -1020,76 +1020,116 @@ end
     end)
   end
 
-  do -- loot
-    local color = { r = .5, g = .5, b = .46 }
+-- ... all previous code (paperdoll, inspect, bags, etc.) ...
+
+do -- loot
+  local color = { r = .5, g = .5, b = .46 }
+  for i = 1, 4 do
+    local button = _G["LootButton"..i]
+    if button then
+      AddBorder(button, 3, color)
+      AddTexture(button, 14, color)
+    end
+  end
+
+  local refresh_loot = function()
+    local numLootItems = GetNumLootItems()
+    if numLootItems == 0 then return end
+    local page = LootFrame.page or 1
+    local itemsPerPage = (numLootItems <= 4) and 4 or 3 -- 4 for 1-4, 3 for 5+
+    local startSlot = (page - 1) * itemsPerPage + 1
+    local endSlot = math.min(startSlot + itemsPerPage - 1, numLootItems)
+
+    -- Reset all 4 buttons
     for i = 1, 4 do
       local button = _G["LootButton"..i]
-      if button then
-        AddBorder(button, 3, color)
-        AddTexture(button, 14, color)
+      if button and button.ShaguTweaks_border and button.ShaguTweaks_texture then
+        if not defcolor["loot"] then
+          defcolor["loot"] = { button.ShaguTweaks_border:GetBackdropBorderColor() }
+        end
+        button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["loot"][1], defcolor["loot"][2], defcolor["loot"][3], 0)
+        button.ShaguTweaks_texture:SetVertexColor(defcolor["loot"][1], defcolor["loot"][2], defcolor["loot"][3], 0)
       end
     end
-    local refresh_loot = function()
-      local numLootItems = GetNumLootItems()
-      if numLootItems == 0 then return end
-      local page = LootFrame.page or 1
-      local itemsPerPage = 4
-      local startSlot = (page - 1) * itemsPerPage + 1
-      local endSlot = math.min(startSlot + itemsPerPage - 1, numLootItems)
+
+    -- Apply glows to visible slots
+    for slot = startSlot, endSlot do
+      local buttonIndex = slot - startSlot + 1
+      local button = _G["LootButton"..buttonIndex] -- Fixed typo
+      if button then
+        if not button.ShaguTweaks_border then AddBorder(button, 3, color) end
+        if not button.ShaguTweaks_texture then AddTexture(button, 14, color) end
+        local link = GetLootSlotLink(slot)
+        local _, itemName, _, quality = GetLootSlotInfo(slot)
+        if link and IsQuestItem(link) then
+          button.ShaguTweaks_border:SetBackdropBorderColor(1, 1, 0, 1)
+          button.ShaguTweaks_texture:SetVertexColor(1, 1, 0, 0.7)
+        elseif itemName and quality == 0 and string.find(itemName, "Quest Item") then
+          button.ShaguTweaks_border:SetBackdropBorderColor(1, 1, 0, 1)
+          button.ShaguTweaks_texture:SetVertexColor(1, 1, 0, 0.7)
+        elseif quality and quality > 0 then
+          SetGlowForQuality(button, quality, defcolor["loot"])
+        end
+      end
+    end
+  end
+
+  -- 1.12 delay frame (cleaned up)
+  local timerFrame = CreateFrame("Frame")
+  local delayTime = 0.3
+  local elapsed = 0
+  timerFrame:Hide()
+  timerFrame:SetScript("OnUpdate", function(self, elapsedTime)
+    elapsed = elapsed + (elapsedTime or 0)
+    if elapsed >= delayTime then
+      self:Hide()
+      elapsed = 0
+      refresh_loot()
+    end
+  end)
+
+  local loot = CreateFrame("Frame", nil, LootFrame)
+  loot:RegisterEvent("LOOT_OPENED")
+  loot:RegisterEvent("LOOT_SLOT_CLEARED")
+  loot:RegisterEvent("LOOT_CLOSED")
+  loot:SetScript("OnEvent", function(self, event)
+    if event == "LOOT_CLOSED" then
       for i = 1, 4 do
         local button = _G["LootButton"..i]
         if button and button.ShaguTweaks_border and button.ShaguTweaks_texture then
-          if not defcolor["loot"] then
-            defcolor["loot"] = { button.ShaguTweaks_border:GetBackdropBorderColor() }
-          end
           button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["loot"][1], defcolor["loot"][2], defcolor["loot"][3], 0)
           button.ShaguTweaks_texture:SetVertexColor(defcolor["loot"][1], defcolor["loot"][2], defcolor["loot"][3], 0)
         end
       end
-      for slot = startSlot, endSlot do
-        local buttonIndex = (slot - startSlot) + 1
-        local button = _G["LootButton"..buttonIndex]
-        if button and button.ShaguTweaks_border and button.ShaguTweaks_texture then
-          local link = GetLootSlotLink(slot)
-          local _, itemName, _, quality = GetLootSlotInfo(slot)
-          if link and IsQuestItem(link) then
-            button.ShaguTweaks_border:SetBackdropBorderColor(1, 1, 0, 1)
-            button.ShaguTweaks_texture:SetVertexColor(1, 1, 0, 0.7)
-          elseif itemName and quality == 0 and string.find(itemName, "Quest Item") then
-            button.ShaguTweaks_border:SetBackdropBorderColor(1, 1, 0, 1)
-            button.ShaguTweaks_texture:SetVertexColor(1, 1, 0, 0.7)
-          elseif quality then
-            SetGlowForQuality(button, quality, defcolor["loot"])
-          end
-        end
-      end
+      timerFrame:Hide() -- Ensure timer stops when loot closes
+    else
+      refresh_loot()
     end
-    local loot = CreateFrame("Frame", nil, LootFrame)
-    loot:RegisterEvent("LOOT_OPENED")
-    loot:RegisterEvent("LOOT_SLOT_CLEARED")
-    loot:RegisterEvent("LOOT_CLOSED")
-    loot:SetScript("OnEvent", function(self, event, arg1)
-      if event == "LOOT_CLOSED" then
-        for i = 1, 4 do
-          local button = _G["LootButton"..i]
-          if button and button.ShaguTweaks_border and button.ShaguTweaks_texture then
-            button.ShaguTweaks_border:SetBackdropBorderColor(defcolor["loot"][1], defcolor["loot"][2], defcolor["loot"][3], 0)
-            button.ShaguTweaks_texture:SetVertexColor(defcolor["loot"][1], defcolor["loot"][2], defcolor["loot"][3], 0)
-          end
-        end
-      else
-        refresh_loot()
+  end)
+
+  local nextButton = _G["LootFrameDownButton"]
+  if nextButton then
+    local origNextOnClick = nextButton:GetScript("OnClick")
+    nextButton:SetScript("OnClick", function()
+      if origNextOnClick then
+        origNextOnClick()
       end
+      timerFrame:Show()
+      refresh_loot() -- Ensures page 2 updates
     end)
-    local HookLootFrameNext_OnClick = LootFrameNext_OnClick
-    LootFrameNext_OnClick = function(arg1)
-      HookLootFrameNext_OnClick(arg1)
-      refresh_loot()
-    end
-    local HookLootFramePrev_OnClick = LootFramePrev_OnClick
-    LootFramePrev_OnClick = function(arg1)
-      HookLootFramePrev_OnClick(arg1)
-      refresh_loot()
-    end
+  end
+
+  local prevButton = _G["LootFrameUpButton"]
+  if prevButton then
+    local origPrevOnClick = prevButton:GetScript("OnClick")
+    prevButton:SetScript("OnClick", function()
+      if origPrevOnClick then
+        origPrevOnClick()
+      end
+      timerFrame:Show()
+      refresh_loot() -- Ensures page 1 updates if going back
+    end)
   end
 end
+
+end -- This closes module.enable = function(self)
